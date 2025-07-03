@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>LastSpoke</title>
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ff4081">
+  <!-- iOS support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Friendly rounded font -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet">
+
+  <style>
+    /* — your existing CSS from before — */
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+      user-select: none;
+    }
+    h1.app-title {
+      font-family: 'Nunito', sans-serif;
+      font-size: 2em;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    #column-labels {
+      display: grid;
+      grid-template-columns: 1fr 48px 48px;
+      column-gap: 24px;
+      margin-bottom: 8px;
+      padding: 0 12px; /* aligns headers over buttons */
+    }
+    #column-labels .label {
+      text-align: center;
+      font-size: 0.8em;
+      line-height: 1.2em;
+    }
+    #contacts-list {
+      margin-bottom: 70px;
+    }
+    .contact-row {
+      display: grid;
+      grid-template-columns: 1fr 48px 48px;
+      column-gap: 24px;
+      align-items: center;
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .contact-name {
+      white-space: pre-line;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1.2em;
+      overflow-wrap: break-word;
+    }
+    .circle-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: none;
+      color: white;
+      font-weight: bold;
+      font-size: 1em;
+      cursor: pointer;
+      transition: filter 0.2s;
+    }
+    .circle-btn:active { filter: brightness(0.8); }
+    .talked-btn { background-color: #d27fff; }
+    .seen-btn   { background-color: #3CB371; }
+    #add-contact-plus {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #ff4081;
+      color: white;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      font-size: 36px;
+      line-height: 56px;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(255,64,129,0.3);
+      z-index: 1000;
+    }
+    #modal-overlay {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.3);
+      backdrop-filter: blur(3px);
+      z-index: 2000;
+      justify-content: center; align-items: center;
+    }
+    #modal {
+      background: white; padding: 20px; border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      width: 90%; max-width: 320px;
+      display: flex; gap: 10px; align-items: center;
+    }
+    #modal input {
+      flex: 1; font-size: 1.1em; padding: 8px 12px;
+      border-radius: 6px; border: 1px solid #ccc;
+    }
+    #modal button {
+      background: #ff4081; color: white; border: none;
+      border-radius: 50%; width: 48px; height: 48px;
+      font-size: 28px; cursor: pointer;
+      box-shadow: 0 4px 8px rgba(255,64,129,0.4);
+    }
+    #calendar {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white; border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      padding: 16px; z-index: 3000;
+      display: none; flex-direction: column; align-items: center;
+    }
+    #calendar-header {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%; margin-bottom: 8px;
+    }
+    #calendar-header button {
+      background: transparent; border: none;
+      font-size: 18px; cursor: pointer;
+      color: #555; transition: color 0.2s;
+    }
+    #calendar-header button:hover { color: #ff4081; }
+    #calendar-month-year {
+      flex: 1; text-align: center;
+      font-weight: bold; font-size: 1.1em;
+    }
+    #clear-date {
+      font-size: 24px; color: #555;
+      padding: 4px 8px; border: none;
+      background: transparent; cursor: pointer;
+      transition: color 0.2s;
+    }
+    #clear-date:hover { color: #ff4081; }
+    #calendar-days,
+    #calendar-dates {
+      display: grid;
+      grid-template-columns: repeat(7,1fr);
+      gap: 4px; width: 100%; text-align: center;
+    }
+    #calendar-days div { font-weight: bold; color: #777; }
+    #calendar-dates button {
+      background: transparent; border: none;
+      padding: 6px 0; border-radius: 6px;
+      cursor: pointer; transition: background 0.3s, color 0.3s;
+      color: #444;
+    }
+    #calendar-dates button:hover {
+      background: #ffccdc; color: #ff4081;
+    }
+    #calendar-dates button.selected {
+      background: #ff4081; color: white; font-weight: bold;
+    }
+    #calendar-dates button:disabled {
+      color: #ccc; cursor: default;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="app-title">LastSpoke</h1>
+
+  <div id="column-labels">
+    <div></div>
+    <div class="label">Last<br>Spoke</div>
+    <div class="label">Last<br>Seen</div>
+  </div>
+
+  <div id="contacts-list" aria-live="polite"></div>
+  <div id="add-contact-plus">+</div>
+
+  <!-- Add-contact Modal -->
+  <div id="modal-overlay">
+    <div id="modal">
+      <input id="modal-contact-name" placeholder="Enter contact name" maxlength="40"/>
+      <button id="modal-add-btn">+</button>
+    </div>
+  </div>
+
+  <!-- Calendar Modal -->
+  <div id="calendar">
+    <div id="calendar-header">
+      <button id="prev-year">«</button>
+      <button id="prev-month">‹</button>
+      <div id="calendar-month-year"></div>
+      <button id="next-month">›</button>
+      <button id="next-year">»</button>
+      <button id="clear-date" title="Clear date">—</button>
+    </div>
+    <div id="calendar-days">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+      <div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div id="calendar-dates"></div>
+  </div>
+
+  <script>
+  // — your existing JavaScript (render, modal, calendar, PWA registration below) —
+  (function(){
+    const KEY='contactTrackerData';
+    let contacts=JSON.parse(localStorage.getItem(KEY)||'[]');
+    let calIdx,calField,calYear,calMonth,calSel;
+
+    const listEl=document.getElementById('contacts-list'),
+          plusBtn=document.getElementById('add-contact-plus'),
+          modalOv=document.getElementById('modal-overlay'),
+          modalIn=document.getElementById('modal-contact-name'),
+          modalAdd=document.getElementById('modal-add-btn'),
+          calEl=document.getElementById('calendar'),
+          lblCY=document.getElementById('calendar-month-year'),
+          pYr=document.getElementById('prev-year'),
+          nYr=document.getElementById('next-year'),
+          pMo=document.getElementById('prev-month'),
+          nMo=document.getElementById('next-month'),
+          clearBtn=document.getElementById('clear-date'),
+          datesGr=document.getElementById('calendar-dates');
+
+    function save(){ localStorage.setItem(KEY,JSON.stringify(contacts)); }
+    function daysSince(d){ if(!d)return'—'; return Math.floor((Date.now()-new Date(d))/86400000); }
+    function fmtName(n){
+      const w=n.trim().split(' ');
+      if(w.length>1){
+        let f=w[0],s=w.slice(1).join(' ');
+        if(f.length>20){s=f.slice(20)+' '+s;f=f.slice(0,20);}
+        if(s.length>20)s=s.slice(0,20)+'…';
+        return f+'\n'+s;
+      }
+      return n.length>20?n.slice(0,20)+'…':n;
+    }
+
+    function render(){
+      listEl.innerHTML='';
+      contacts.forEach((c,i)=>{
+        const row=document.createElement('div');row.className='contact-row';
+
+        // Name & delete
+        const nm=document.createElement('div');nm.className='contact-name';nm.textContent=fmtName(c.name);
+        let tm;
+        nm.addEventListener('mousedown',()=>{
+          tm=setTimeout(()=>{
+            if(confirm(`Delete "${c.name}"?`)){
+              contacts.splice(i,1);save();render();
+            }
+          },700);
+        });
+        ['mouseup','mouseleave','touchend','touchcancel'].forEach(e=>nm.addEventListener(e,()=>clearTimeout(tm)));
+        row.appendChild(nm);
+
+        // Counters
+        ['lastTalked','lastSeen'].forEach(fld=>{
+          const btn=document.createElement('button');
+          btn.className='circle-btn '+(fld==='lastTalked'?'talked-btn':'seen-btn');
+          btn.textContent=daysSince(c[fld]);
+          let down,timer;
+          btn.addEventListener('mousedown',()=>{
+            down=Date.now();timer=setTimeout(()=>openCal(i,fld),700);
+          });
+          ['mouseup','mouseleave'].forEach(e=>btn.addEventListener(e,()=>{
+            clearTimeout(timer);
+            if(Date.now()-down<700){
+              c[fld]=new Date().toISOString().slice(0,10);
+              if(fld==='lastSeen'){
+                const seenD=new Date(c.lastSeen),
+                      spokeD=c.lastTalked?new Date(c.lastTalked):new Date(0);
+                if(seenD>spokeD) c.lastTalked=c.lastSeen;
+              }
+              save();render();positionPlus();
+            }
+          }));
+          btn.addEventListener('touchstart',()=>{
+            down=Date.now();timer=setTimeout(()=>openCal(i,fld),700);
+          });
+          ['touchend','touchcancel'].forEach(e=>btn.addEventListener(e,()=>{
+            clearTimeout(timer);
+            if(Date.now()-down<700){
+              c[fld]=new Date().toISOString().slice(0,10);
+              if(fld==='lastSeen'){
+                const seenD=new Date(c.lastSeen),
+                      spokeD=c.lastTalked?new Date(c.lastTalked):new Date(0);
+                if(seenD>spokeD) c.lastTalked=c.lastSeen;
+              }
+              save();render();positionPlus();
+            }
+          }));
+          row.appendChild(btn);
+        });
+
+        listEl.appendChild(row);
+      });
+      positionPlus();
+    }
+
+    function positionPlus(){
+      const rect=listEl.getBoundingClientRect(),last=listEl.lastElementChild;
+      plusBtn.style.left='20px';
+      if(last){
+        const lr=last.getBoundingClientRect();
+        plusBtn.style.top=(window.scrollY+lr.bottom+20)+'px';
+        plusBtn.style.bottom='auto';
+      } else {
+        plusBtn.style.top='auto';
+        plusBtn.style.bottom='20px';
+      }
+    }
+
+    // Add-contact modal
+    plusBtn.addEventListener('click',()=>{
+      modalOv.style.display='flex';modalIn.value='';modalIn.focus();plusBtn.style.display='none';
+    });
+    modalAdd.addEventListener('click',()=>{
+      const v=modalIn.value.trim();if(!v){alert('Enter name');return;}
+      contacts.push({name:v,lastTalked:null,lastSeen:null});
+      save();render();modalOv.style.display='none';plusBtn.style.display='block';
+    });
+    modalOv.addEventListener('click',e=>{
+      if(e.target===modalOv){modalOv.style.display='none';plusBtn.style.display='block';}
+    });
+
+    // Calendar
+    function openCal(idx,fld){
+      calIdx=idx;calField=fld;
+      calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
+      const d=new Date(calSel);
+      calYear=d.getFullYear();calMonth=d.getMonth();
+      drawCal();calEl.style.display='flex';
+    }
+    function drawCal(){
+      lblCY.textContent=new Date(calYear,calMonth).toLocaleDateString(undefined,{year:'numeric',month:'long'});
+      datesGr.innerHTML='';
+      const first=new Date(calYear,calMonth,1),
+            last=new Date(calYear,calMonth+1,0),
+            start=first.getDay(),
+            today=new Date(),
+            minSpoke = calField==='lastTalked' && contacts[calIdx].lastSeen 
+                       ? new Date(contacts[calIdx].lastSeen) : null;
+      for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
+      for(let d=1;d<=last.getDate();d++){
+        const b=document.createElement('button');b.textContent=d;
+        const dt=new Date(calYear,calMonth,d);
+        if(dt>today||(minSpoke&&dt<minSpoke)){
+          b.disabled=true;
+        } else {
+          b.addEventListener('click',()=>{
+            const m2=String(calMonth+1).padStart(2,'0'),d2=String(d).padStart(2,'0');
+            contacts[calIdx][calField]=`${calYear}-${m2}-${d2}`;
+            if(calField==='lastSeen'){
+              const seenD=new Date(contacts[calIdx].lastSeen),
+                    spokeD=contacts[calIdx].lastTalked?new Date(contacts[calIdx].lastTalked):new Date(0);
+              if(seenD>spokeD) contacts[calIdx].lastTalked=contacts[calIdx].lastSeen;
+            }
+            save();render();closeCal();positionPlus();
+          });
+        }
+        const [y,m,day]=calSel.split('-');
+        if(+y===calYear&&+m-1===calMonth&&+day===d) b.classList.add('selected');
+        datesGr.appendChild(b);
+      }
+    }
+    pMo.onclick=()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}drawCal();};
+    nMo.onclick=()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}drawCal();};
+    pYr.onclick=()=>{calYear--;drawCal();};
+    nYr.onclick=()=>{calYear++;drawCal();};
+    clearBtn.addEventListener('click',()=>{
+      contacts[calIdx][calField]=null;
+      save();render();closeCal();positionPlus();
+    });
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCal();});
+    function closeCal(){calEl.style.display='none';positionPlus();}
+
+    // PWA service worker registration
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>{
+        navigator.serviceWorker.register('service-worker.js')
+          .catch(e=>console.error('SW reg failed',e));
+      });
+    }
+
+    // init
+    render();
+  })();
+  </script>
+</body>
+</html>
