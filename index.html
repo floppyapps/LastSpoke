@@ -11,12 +11,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-
   <!-- Friendly rounded font -->
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet">
 
   <style>
-    /* — your existing CSS from before — */
     body {
       font-family: Arial, sans-serif;
       max-width: 600px;
@@ -30,6 +28,8 @@
       text-align: center;
       margin-bottom: 12px;
     }
+
+    /* Column labels */
     #column-labels {
       display: grid;
       grid-template-columns: 1fr 48px 48px;
@@ -42,8 +42,10 @@
       font-size: 0.8em;
       line-height: 1.2em;
     }
+
+    /* Contacts list */
     #contacts-list {
-      margin-bottom: 70px;
+      margin-bottom: 100px; /* room for fixed + button */
     }
     .contact-row {
       display: grid;
@@ -76,6 +78,8 @@
     .circle-btn:active { filter: brightness(0.8); }
     .talked-btn { background-color: #d27fff; }
     .seen-btn   { background-color: #3CB371; }
+
+    /* ALWAYS-VISIBLE + button */
     #add-contact-plus {
       position: fixed;
       bottom: 20px;
@@ -91,13 +95,13 @@
       box-shadow: 0 4px 8px rgba(255,64,129,0.3);
       z-index: 1000;
     }
+
+    /* Modal styles */
     #modal-overlay {
       display: none;
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.3);
-      backdrop-filter: blur(3px);
-      z-index: 2000;
-      justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.3); backdrop-filter: blur(3px);
+      z-index: 2000; justify-content: center; align-items: center;
     }
     #modal {
       background: white; padding: 20px; border-radius: 12px;
@@ -115,6 +119,8 @@
       font-size: 28px; cursor: pointer;
       box-shadow: 0 4px 8px rgba(255,64,129,0.4);
     }
+
+    /* Calendar modal */
     #calendar {
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
@@ -144,6 +150,7 @@
       transition: color 0.2s;
     }
     #clear-date:hover { color: #ff4081; }
+
     #calendar-days,
     #calendar-dates {
       display: grid;
@@ -172,6 +179,7 @@
 
   <h1 class="app-title">LastSpoke</h1>
 
+  <!-- Column labels -->
   <div id="column-labels">
     <div></div>
     <div class="label">Last<br>Spoke</div>
@@ -207,191 +215,179 @@
   </div>
 
   <script>
-  // — your existing JavaScript (render, modal, calendar, PWA registration below) —
   (function(){
-    const KEY='contactTrackerData';
-    let contacts=JSON.parse(localStorage.getItem(KEY)||'[]');
-    let calIdx,calField,calYear,calMonth,calSel;
+    const KEY = 'contactTrackerData';
+    let contacts = JSON.parse(localStorage.getItem(KEY)||'[]');
+    let calIdx, calField, calYear, calMonth, calSel;
 
-    const listEl=document.getElementById('contacts-list'),
-          plusBtn=document.getElementById('add-contact-plus'),
-          modalOv=document.getElementById('modal-overlay'),
-          modalIn=document.getElementById('modal-contact-name'),
-          modalAdd=document.getElementById('modal-add-btn'),
-          calEl=document.getElementById('calendar'),
-          lblCY=document.getElementById('calendar-month-year'),
-          pYr=document.getElementById('prev-year'),
-          nYr=document.getElementById('next-year'),
-          pMo=document.getElementById('prev-month'),
-          nMo=document.getElementById('next-month'),
-          clearBtn=document.getElementById('clear-date'),
-          datesGr=document.getElementById('calendar-dates');
+    const listEl   = document.getElementById('contacts-list'),
+          plusBtn  = document.getElementById('add-contact-plus'),
+          modalOv  = document.getElementById('modal-overlay'),
+          modalIn  = document.getElementById('modal-contact-name'),
+          modalAdd = document.getElementById('modal-add-btn'),
+          calEl    = document.getElementById('calendar'),
+          lblCY    = document.getElementById('calendar-month-year'),
+          pYr      = document.getElementById('prev-year'),
+          nYr      = document.getElementById('next-year'),
+          pMo      = document.getElementById('prev-month'),
+          nMo      = document.getElementById('next-month'),
+          clearBtn = document.getElementById('clear-date'),
+          datesGr  = document.getElementById('calendar-dates');
 
-    function save(){ localStorage.setItem(KEY,JSON.stringify(contacts)); }
-    function daysSince(d){ if(!d)return'—'; return Math.floor((Date.now()-new Date(d))/86400000); }
+    function save(){ localStorage.setItem(KEY, JSON.stringify(contacts)); }
+    function daysSince(d){ return d ? Math.floor((Date.now()-new Date(d))/86400000) : '—'; }
     function fmtName(n){
       const w=n.trim().split(' ');
       if(w.length>1){
-        let f=w[0],s=w.slice(1).join(' ');
-        if(f.length>20){s=f.slice(20)+' '+s;f=f.slice(0,20);}
-        if(s.length>20)s=s.slice(0,20)+'…';
+        let f=w[0], s=w.slice(1).join(' ');
+        if(f.length>20){ s=f.slice(20)+' '+s; f=f.slice(0,20); }
+        if(s.length>20) s=s.slice(0,20)+'…';
         return f+'\n'+s;
       }
       return n.length>20?n.slice(0,20)+'…':n;
     }
 
     function render(){
-      listEl.innerHTML='';
+      listEl.innerHTML = '';
       contacts.forEach((c,i)=>{
-        const row=document.createElement('div');row.className='contact-row';
+        const row = document.createElement('div');
+        row.className = 'contact-row';
 
-        // Name & delete
-        const nm=document.createElement('div');nm.className='contact-name';nm.textContent=fmtName(c.name);
-        let tm;
-        nm.addEventListener('mousedown',()=>{
-          tm=setTimeout(()=>{
+        // Name with pointer-based long-press delete
+        const nm = document.createElement('div');
+        nm.className = 'contact-name';
+        nm.textContent = fmtName(c.name);
+        let deleteTimer;
+        nm.addEventListener('pointerdown', () => {
+          deleteTimer = setTimeout(() => {
             if(confirm(`Delete "${c.name}"?`)){
-              contacts.splice(i,1);save();render();
+              contacts.splice(i,1); save(); render();
             }
-          },700);
+          }, 700);
         });
-        ['mouseup','mouseleave','touchend','touchcancel'].forEach(e=>nm.addEventListener(e,()=>clearTimeout(tm)));
+        ['pointerup','pointerleave','pointercancel'].forEach(evt=>
+          nm.addEventListener(evt, ()=>clearTimeout(deleteTimer))
+        );
         row.appendChild(nm);
 
         // Counters
         ['lastTalked','lastSeen'].forEach(fld=>{
-          const btn=document.createElement('button');
-          btn.className='circle-btn '+(fld==='lastTalked'?'talked-btn':'seen-btn');
-          btn.textContent=daysSince(c[fld]);
-          let down,timer;
-          btn.addEventListener('mousedown',()=>{
-            down=Date.now();timer=setTimeout(()=>openCal(i,fld),700);
+          const btn = document.createElement('button');
+          btn.className = 'circle-btn ' + (fld==='lastTalked'?'talked-btn':'seen-btn');
+          btn.textContent = daysSince(c[fld]);
+          let down, timer;
+          btn.addEventListener('pointerdown', ()=>{
+            down = Date.now();
+            timer = setTimeout(()=> openCal(i,fld), 700);
           });
-          ['mouseup','mouseleave'].forEach(e=>btn.addEventListener(e,()=>{
-            clearTimeout(timer);
-            if(Date.now()-down<700){
-              c[fld]=new Date().toISOString().slice(0,10);
-              if(fld==='lastSeen'){
-                const seenD=new Date(c.lastSeen),
-                      spokeD=c.lastTalked?new Date(c.lastTalked):new Date(0);
-                if(seenD>spokeD) c.lastTalked=c.lastSeen;
+          ['pointerup','pointerleave','pointercancel'].forEach(evt=>
+            btn.addEventListener(evt, ()=>{
+              clearTimeout(timer);
+              if(Date.now()-down<700){
+                c[fld] = new Date().toISOString().slice(0,10);
+                if(fld==='lastSeen'){
+                  const seenD=new Date(c.lastSeen),
+                        spokeD=c.lastTalked?new Date(c.lastTalked):new Date(0);
+                  if(seenD>spokeD) c.lastTalked = c.lastSeen;
+                }
+                save(); render();
               }
-              save();render();positionPlus();
-            }
-          }));
-          btn.addEventListener('touchstart',()=>{
-            down=Date.now();timer=setTimeout(()=>openCal(i,fld),700);
-          });
-          ['touchend','touchcancel'].forEach(e=>btn.addEventListener(e,()=>{
-            clearTimeout(timer);
-            if(Date.now()-down<700){
-              c[fld]=new Date().toISOString().slice(0,10);
-              if(fld==='lastSeen'){
-                const seenD=new Date(c.lastSeen),
-                      spokeD=c.lastTalked?new Date(c.lastTalked):new Date(0);
-                if(seenD>spokeD) c.lastTalked=c.lastSeen;
-              }
-              save();render();positionPlus();
-            }
-          }));
+            })
+          );
           row.appendChild(btn);
         });
 
         listEl.appendChild(row);
       });
-      positionPlus();
     }
 
-    function positionPlus(){
-      const rect=listEl.getBoundingClientRect(),last=listEl.lastElementChild;
-      plusBtn.style.left='20px';
-      if(last){
-        const lr=last.getBoundingClientRect();
-        plusBtn.style.top=(window.scrollY+lr.bottom+20)+'px';
-        plusBtn.style.bottom='auto';
-      } else {
-        plusBtn.style.top='auto';
-        plusBtn.style.bottom='20px';
-      }
-    }
+    // + button
+    plusBtn.addEventListener('click', ()=>{
+      modalOv.style.display='flex';
+      modalIn.value=''; modalIn.focus();
+      plusBtn.style.display='none';
+    });
 
     // Add-contact modal
-    plusBtn.addEventListener('click',()=>{
-      modalOv.style.display='flex';modalIn.value='';modalIn.focus();plusBtn.style.display='none';
+    modalAdd.addEventListener('click', ()=>{
+      const v = modalIn.value.trim();
+      if(!v){ alert('Enter name'); return; }
+      contacts.push({name:v, lastTalked:null, lastSeen:null});
+      save(); render();
+      modalOv.style.display='none';
+      plusBtn.style.display='block';
     });
-    modalAdd.addEventListener('click',()=>{
-      const v=modalIn.value.trim();if(!v){alert('Enter name');return;}
-      contacts.push({name:v,lastTalked:null,lastSeen:null});
-      save();render();modalOv.style.display='none';plusBtn.style.display='block';
-    });
-    modalOv.addEventListener('click',e=>{
-      if(e.target===modalOv){modalOv.style.display='none';plusBtn.style.display='block';}
+    modalOv.addEventListener('click', e=>{
+      if(e.target===modalOv){
+        modalOv.style.display='none';
+        plusBtn.style.display='block';
+      }
     });
 
-    // Calendar
+    // Calendar functions (unchanged from before)
     function openCal(idx,fld){
-      calIdx=idx;calField=fld;
+      calIdx=idx; calField=fld;
       calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
       const d=new Date(calSel);
-      calYear=d.getFullYear();calMonth=d.getMonth();
-      drawCal();calEl.style.display='flex';
+      calYear=d.getFullYear(); calMonth=d.getMonth();
+      drawCal(); calEl.style.display='flex';
     }
     function drawCal(){
-      lblCY.textContent=new Date(calYear,calMonth).toLocaleDateString(undefined,{year:'numeric',month:'long'});
+      lblCY.textContent = new Date(calYear,calMonth)
+        .toLocaleDateString(undefined,{year:'numeric',month:'long'});
       datesGr.innerHTML='';
       const first=new Date(calYear,calMonth,1),
             last=new Date(calYear,calMonth+1,0),
             start=first.getDay(),
             today=new Date(),
-            minSpoke = calField==='lastTalked' && contacts[calIdx].lastSeen 
+            minSpoke = calField==='lastTalked' && contacts[calIdx].lastSeen
                        ? new Date(contacts[calIdx].lastSeen) : null;
       for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
       for(let d=1;d<=last.getDate();d++){
-        const b=document.createElement('button');b.textContent=d;
+        const b=document.createElement('button'); b.textContent=d;
         const dt=new Date(calYear,calMonth,d);
-        if(dt>today||(minSpoke&&dt<minSpoke)){
+        if(dt>today || (minSpoke && dt<minSpoke)){
           b.disabled=true;
         } else {
-          b.addEventListener('click',()=>{
-            const m2=String(calMonth+1).padStart(2,'0'),d2=String(d).padStart(2,'0');
-            contacts[calIdx][calField]=`${calYear}-${m2}-${d2}`;
+          b.addEventListener('click', ()=>{
+            const mo=String(calMonth+1).padStart(2,'0'),
+                  da=String(d).padStart(2,'0');
+            contacts[calIdx][calField] = `${calYear}-${mo}-${da}`;
             if(calField==='lastSeen'){
               const seenD=new Date(contacts[calIdx].lastSeen),
                     spokeD=contacts[calIdx].lastTalked?new Date(contacts[calIdx].lastTalked):new Date(0);
-              if(seenD>spokeD) contacts[calIdx].lastTalked=contacts[calIdx].lastSeen;
+              if(seenD>spokeD) contacts[calIdx].lastTalked = contacts[calIdx].lastSeen;
             }
-            save();render();closeCal();positionPlus();
+            save(); render(); closeCal();
           });
         }
-        const [y,m,day]=calSel.split('-');
-        if(+y===calYear&&+m-1===calMonth&&+day===d) b.classList.add('selected');
+        const [y,m,day] = calSel.split('-');
+        if(+y===calYear && +m-1===calMonth && +day===d) b.classList.add('selected');
         datesGr.appendChild(b);
       }
     }
-    pMo.onclick=()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}drawCal();};
-    nMo.onclick=()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}drawCal();};
-    pYr.onclick=()=>{calYear--;drawCal();};
-    nYr.onclick=()=>{calYear++;drawCal();};
-    clearBtn.addEventListener('click',()=>{
-      contacts[calIdx][calField]=null;
-      save();render();closeCal();positionPlus();
+    pMo.onclick=()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;} drawCal();};
+    nMo.onclick=()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;} drawCal();};
+    pYr.onclick=()=>{calYear--; drawCal();};
+    nYr.onclick=()=>{calYear++; drawCal();};
+    clearBtn.addEventListener('click', ()=>{
+      contacts[calIdx][calField] = null;
+      save(); render(); closeCal();
     });
-    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCal();});
-    function closeCal(){calEl.style.display='none';positionPlus();}
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCal(); });
+    function closeCal(){ calEl.style.display='none'; }
 
-    // PWA service worker registration
+    // PWA SW registration (unchanged)
     if('serviceWorker' in navigator){
-      window.addEventListener('load',()=>{
+      window.addEventListener('load', ()=>{
         navigator.serviceWorker.register('service-worker.js')
-          .catch(e=>console.error('SW reg failed',e));
+          .catch(e=>console.error('SW reg failed', e));
       });
     }
 
-    // init
+    // initial render
     render();
   })();
   </script>
 </body>
 </html>
-
- 
