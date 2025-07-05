@@ -4,108 +4,80 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>LastSpoke</title>
-
-  <!-- PWA manifest & icons -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#ff4081"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
-
-  <!-- Friendly font -->
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet"/>
-
   <style>
-    html,body{margin:0;padding:0;height:100%;}
+    html,body {margin:0;padding:0;height:100%;}
+    /* Auth overlay */
     #auth-overlay {
       position:fixed;top:0;left:0;right:0;bottom:0;
       background:white;display:flex;flex-direction:column;
-      justify-content:center;align-items:center;font-family:Arial,sans-serif;
+      align-items:center;justify-content:center;font-family:Arial,sans-serif;
       z-index:10000;
     }
-    #auth-overlay h2{margin-bottom:16px;}
-    #auth-overlay input{margin:4px;padding:8px;width:220px;font-size:1em;}
-    #auth-overlay button{margin:6px;padding:8px 16px;font-size:1em;cursor:pointer;}
-    #app-container{display:none;}
-
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 15px; user-select: none; }
+    #auth-overlay input, #auth-overlay button {
+      margin:6px;padding:8px;width:220px;font-size:1em;
+    }
+    /* App hidden until auth */
+    #app-container { display:none; }
+    body { font-family:Arial,sans-serif; max-width:600px; margin:0 auto; padding:15px; user-select:none; }
     h1.app-title { font-family:'Nunito',sans-serif; font-size:2em; text-align:center; margin-bottom:12px; }
-    #login-status {
-      text-align:center; color:#555; margin-bottom:12px;
-      display:flex; justify-content:center; align-items:center; gap:8px;
-    }
-    #login-status button {
-      padding:4px 10px; cursor:pointer; border:none; background:#ff4081; color:white; border-radius:4px;
-    }
-    #column-labels { display:grid; grid-template-columns:1fr 48px 48px; gap:24px; margin-bottom:8px; padding:0 12px; }
-    #column-labels .label { text-align:center; font-size:0.8em; line-height:1.2em; }
+    #login-status { text-align:center;color:#555;margin-bottom:12px; display:flex;gap:8px;justify-content:center; }
+    #login-status button { padding:4px 10px;border:none;border-radius:4px;background:#ff4081;color:#fff;cursor:pointer; }
+    #column-labels { display:grid;grid-template-columns:1fr 48px 48px;gap:24px;padding:0 12px;margin-bottom:8px; }
+    #column-labels .label { text-align:center;font-size:0.8em;line-height:1.2em; }
     #contacts-list { margin-bottom:100px; }
-    .contact-row {
-      display:grid; grid-template-columns:1fr 48px 48px; gap:24px; align-items:center;
-      border:1px solid #ccc; padding:8px 12px; margin-bottom:12px; border-radius:8px; background:#fff;
-    }
-    .contact-name { white-space:pre-line; font-weight:bold; cursor:pointer; line-height:1.2em; overflow-wrap:break-word; }
-    .circle-btn {
-      width:48px;height:48px;border-radius:50%;border:none;color:white;font-weight:bold;font-size:1em;
-      cursor:pointer;transition:filter .2s;
-    }
+    .contact-row { display:grid;grid-template-columns:1fr 48px 48px;gap:24px;align-items:center;
+      border:1px solid #ccc;padding:8px 12px;margin-bottom:12px;border-radius:8px;background:#fff; }
+    .contact-name { white-space:pre-line;font-weight:bold;cursor:pointer;line-height:1.2em;overflow-wrap:break-word; }
+    .circle-btn { width:48px;height:48px;border-radius:50%;border:none;color:#fff;font-weight:bold;font-size:1em;
+      cursor:pointer;transition:filter .2s; }
     .circle-btn:active { filter:brightness(.8); }
     .talked-btn { background:#d27fff; }
-    .seen-btn   { background:#3CB371; }
+    .seen-btn   { background:#3cb371; }
     #add-contact-plus {
-      position:fixed; bottom:20px; left:20px; width:56px;height:56px;border-radius:50%;
-      background:#ff4081;color:white;font-size:36px;line-height:56px;text-align:center;
-      box-shadow:0 4px 8px rgba(255,64,129,.3);cursor:pointer;z-index:9999;
+      position:fixed;bottom:20px;left:20px;width:56px;height:56px;border-radius:50%;
+      background:#ff4081;color:#fff;font-size:36px;line-height:56px;text-align:center;cursor:pointer;
+      box-shadow:0 4px 8px rgba(255,64,129,.3);z-index:9999;
     }
-    #modal-overlay {
-      display:none; position:fixed; top:0;left:0;right:0;bottom:0;
-      background:rgba(0,0,0,.3); backdrop-filter:blur(3px); z-index:5000;
-      display:flex;justify-content:center;align-items:center;
-    }
-    #modal {
-      background:white;padding:20px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.2);
-      width:90%;max-width:320px;display:flex;gap:10px;align-items:center;
-    }
-    #modal input {
-      flex:1;font-size:1.1em;padding:8px 12px;border:1px solid #ccc;border-radius:6px;
-    }
-    #modal button {
-      width:48px;height:48px;border-radius:50%;background:#ff4081;color:white;border:none;
-      font-size:28px;cursor:pointer;box-shadow:0 4px 8px rgba(255,64,129,.4);
-    }
-    #calendar {
-      display:none!important; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-      background:white; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3);
-      padding:16px; z-index:6000; display:flex; flex-direction:column; align-items:center;
-    }
-    #calendar-header {
-      display:flex; align-items:center; gap:6px; width:100%; margin-bottom:8px;
-    }
-    #calendar-header button {
-      background:transparent; border:none; font-size:18px; cursor:pointer; color:#555; transition:color .2s;
-    }
+    /* Add-contact modal */
+    #modal-overlay { display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,.3);backdrop-filter:blur(3px);z-index:5000;
+      display:flex;justify-content:center;align-items:center; }
+    #modal { background:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.2);
+      width:90%;max-width:320px;display:flex;gap:10px;align-items:center; }
+    #modal input { flex:1;padding:8px 12px;font-size:1.1em;border:1px solid #ccc;border-radius:6px; }
+    #modal button { width:48px;height:48px;border-radius:50%;background:#ff4081;color:#fff;border:none;
+      font-size:28px;cursor:pointer;box-shadow:0 4px 8px rgba(255,64,129,.4); }
+    /* Calendar modal (always hidden until openCal) */
+    #calendar { display:none!important;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:#fff;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:16px;
+      z-index:6000;display:flex;flex-direction:column;align-items:center; }
+    #calendar-header { display:flex;align-items:center;gap:6px;width:100%;margin-bottom:8px; }
+    #calendar-header button { background:transparent;border:none;font-size:18px;cursor:pointer;color:#555;
+      transition:color .2s; }
     #calendar-header button:hover { color:#ff4081; }
-    #calendar-month-year { flex:1; text-align:center; font-weight:bold; font-size:1.1em; }
-    #clear-date {
-      font-size:24px;color:#555;padding:4px 8px;border:none;background:transparent;cursor:pointer;transition:color .2s;
-    }
+    #calendar-month-year { flex:1;text-align:center;font-weight:bold;font-size:1.1em; }
+    #clear-date { font-size:24px;color:#555;border:none;background:transparent;cursor:pointer;
+      padding:4px 8px;transition:color .2s; }
     #clear-date:hover { color:#ff4081; }
-    #calendar-days, #calendar-dates {
-      display:grid; grid-template-columns:repeat(7,1fr); gap:4px; width:100%; text-align:center;
-    }
+    #calendar-days,#calendar-dates { display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;
+      text-align:center; }
     #calendar-days div { font-weight:bold;color:#777; }
-    #calendar-dates button {
-      background:transparent;border:none;padding:6px 0;border-radius:6px;
-      cursor:pointer;transition:background .3s,color .3s;color:#444;
-    }
+    #calendar-dates button { background:transparent;border:none;padding:6px 0;border-radius:6px;
+      cursor:pointer;transition:background .3s,color .3s;color:#444; }
     #calendar-dates button:hover { background:#ffccdc;color:#ff4081; }
-    #calendar-dates button.selected { background:#ff4081;color:white;font-weight:bold; }
+    #calendar-dates button.selected { background:#ff4081;color:#fff;font-weight:bold; }
     #calendar-dates button:disabled { color:#ccc;cursor:default; }
   </style>
 </head>
-
 <body>
-  <!-- Auth Overlay -->
+
+  <!-- AUTH OVERLAY -->
   <div id="auth-overlay">
     <h2>Welcome to LastSpoke</h2>
     <input id="email-input"  type="email"    placeholder="Email"/>
@@ -115,7 +87,7 @@
     <button id="btn-guest">Continue as Guest</button>
   </div>
 
-  <!-- Main App Container -->
+  <!-- APP CONTAINER -->
   <div id="app-container">
     <h1 class="app-title">LastSpoke</h1>
     <div id="login-status"></div>
@@ -152,8 +124,7 @@
   </div>
 
   <script type="module">
-    // Firebase imports
-    import { initializeApp }         from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
       getAuth, onAuthStateChanged, signInAnonymously,
       createUserWithEmailAndPassword, signInWithEmailAndPassword,
@@ -163,7 +134,7 @@
       getFirestore, doc, onSnapshot, setDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    // Initialize Firebase
+    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyCVt7xEfSIuevmDg7g_P-euAzru1wKfbgc",
       authDomain: "lastspoke-pwa.firebaseapp.com",
@@ -176,7 +147,7 @@
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // Auth UI elements
+    // Auth UI
     const authOv   = document.getElementById('auth-overlay');
     const emailIn  = document.getElementById('email-input');
     const passIn   = document.getElementById('pass-input');
@@ -186,21 +157,17 @@
     const appCont  = document.getElementById('app-container');
     const loginSt  = document.getElementById('login-status');
 
-    // Sign-up (with verification)
     btnSU.onclick = () => {
       createUserWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
-        .then(cred => sendEmailVerification(cred.user).then(() => alert("Verification email sent!")))
-        .catch(e => alert("Sign-up error: " + e.message));
+        .then(cred => sendEmailVerification(cred.user).then(()=>alert("Verification email sent!")))
+        .catch(e=>alert(e.message));
     };
-    // Sign-in
     btnSI.onclick = () => {
       signInWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
-        .catch(e => alert("Sign-in error: " + e.message));
+        .catch(e=>alert(e.message));
     };
-    // Guest
     btnG.onclick = () => signInAnonymously(auth).catch(console.error);
 
-    // After auth state changes
     let unsubscribeFromCloud = null;
     onAuthStateChanged(auth, user => {
       if (user && (user.isAnonymous || user.emailVerified)) {
@@ -209,11 +176,11 @@
         loginSt.innerHTML = user.isAnonymous
           ? 'Signed in as Guest'
           : `Signed in as ${user.email}`;
-        loginSt.insertAdjacentHTML('beforeend', '<button id="btn-signout-app">Sign Out</button>');
-        document.getElementById('btn-signout-app').onclick = () => signOut(auth);
+        loginSt.insertAdjacentHTML('beforeend','<button id="btn-signout">Sign Out</button>');
+        document.getElementById('btn-signout').onclick = ()=>signOut(auth);
         if (user.isAnonymous) {
-          loginSt.insertAdjacentHTML('beforeend', '<button id="btn-upgrade-app">Sign In</button>');
-          document.getElementById('btn-upgrade-app').onclick = () => authOv.style.display='flex';
+          loginSt.insertAdjacentHTML('beforeend','<button id="btn-upgrade">Sign In</button>');
+          document.getElementById('btn-upgrade').onclick = ()=>authOv.style.display='flex';
         }
         startCloudSync(user.uid);
       } else {
@@ -224,78 +191,88 @@
       }
     });
 
-    // Core app logic
+    // Core App
     const KEY='contactTrackerData';
     let contacts = JSON.parse(localStorage.getItem(KEY)||'[]');
     let calIdx,calField,calYear,calMonth,calSel;
 
-    const listEl=document.getElementById('contacts-list'),
-          plusBtn=document.getElementById('add-contact-plus'),
-          modalOv=document.getElementById('modal-overlay'),
-          modalIn=document.getElementById('modal-contact-name'),
-          modalAdd=document.getElementById('modal-add-btn'),
-          calEl=document.getElementById('calendar'),
-          lblCY=document.getElementById('calendar-month-year'),
-          pYr=document.getElementById('prev-year'),
-          nYr=document.getElementById('next-year'),
-          pMo=document.getElementById('prev-month'),
-          nMo=document.getElementById('next-month'),
-          clearBtn=document.getElementById('clear-date'),
-          datesGr=document.getElementById('calendar-dates');
+    const listEl    = document.getElementById('contacts-list'),
+          plusBtn   = document.getElementById('add-contact-plus'),
+          modalOv   = document.getElementById('modal-overlay'),
+          modalIn   = document.getElementById('modal-contact-name'),
+          modalAdd  = document.getElementById('modal-add-btn'),
+          calEl     = document.getElementById('calendar'),
+          lblCY     = document.getElementById('calendar-month-year'),
+          pYr       = document.getElementById('prev-year'),
+          nYr       = document.getElementById('next-year'),
+          pMo       = document.getElementById('prev-month'),
+          nMo       = document.getElementById('next-month'),
+          clearBtn  = document.getElementById('clear-date'),
+          datesGr   = document.getElementById('calendar-dates');
 
-    function save(){
+    function save() {
       localStorage.setItem(KEY, JSON.stringify(contacts));
     }
-    function daysSince(d){
-      return d ? Math.floor((Date.now()-new Date(d))/86400000) : '—';
+    function daysSince(d) {
+      return d ? Math.floor((Date.now() - new Date(d)) / 86400000) : '—';
     }
-    function fmtName(n){
-      const w=n.trim().split(' ');
-      if(w.length>1){
-        let f=w[0],s=w.slice(1).join(' ');
-        if(f.length>20){s=f.slice(20)+' '+s;f=f.slice(0,20);}
-        if(s.length>20) s=s.slice(0,20)+'…';
+    function fmtName(n) {
+      const w = n.trim().split(' ');
+      if (w.length > 1) {
+        let f = w[0], s = w.slice(1).join(' ');
+        if (f.length>20) { s = f.slice(20)+' '+s; f=f.slice(0,20); }
+        if (s.length>20) s = s.slice(0,20)+'…';
         return f+'\n'+s;
       }
       return n.length>20?n.slice(0,20)+'…':n;
     }
 
-    function render(){
-      listEl.innerHTML='';
+    function render() {
+      listEl.innerHTML = '';
       contacts.forEach((c,i)=>{
-        const row=document.createElement('div');row.className='contact-row';
-        const nm=document.createElement('div');nm.className='contact-name';nm.textContent=fmtName(c.name);
-        let dt;
-        nm.addEventListener('pointerdown', ()=>{
-          dt=setTimeout(()=>{
-            if(confirm(`Delete "${c.name}"?`)){
-              contacts.splice(i,1);save();render();
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+
+        // Name + delete
+        const nm = document.createElement('div');
+        nm.className = 'contact-name';
+        nm.textContent = fmtName(c.name);
+        let dtimer;
+        nm.addEventListener('pointerdown',()=>{
+          dtimer = setTimeout(()=>{
+            if (confirm(`Delete "${c.name}"?`)){
+              contacts.splice(i,1); save(); render();
             }
           },700);
         });
-        ['pointerup','pointerleave','pointercancel'].forEach(e=>nm.addEventListener(e,()=>clearTimeout(dt)));
+        ['pointerup','pointerleave','pointercancel'].forEach(evt=>
+          nm.addEventListener(evt,()=>clearTimeout(dtimer))
+        );
         row.appendChild(nm);
 
+        // Buttons w/ long press
         ['lastTalked','lastSeen'].forEach(fld=>{
           const btn=document.createElement('button');
           btn.className='circle-btn '+(fld==='lastTalked'?'talked-btn':'seen-btn');
           btn.textContent=daysSince(c[fld]);
-          let down,tm;
-          btn.addEventListener('pointerdown', ()=>{
-            down=Date.now();
-            tm=setTimeout(()=>openCal(i,fld),700);
+          let downTime, timer;
+          btn.addEventListener('pointerdown',()=>{
+            downTime = Date.now();
+            timer = setTimeout(()=>openCal(i,fld),700);
           });
-          ['pointerup','pointerleave','pointercancel'].forEach(e=>btn.addEventListener(e,()=>{
-            clearTimeout(tm);
-            if(Date.now()-down<700){
-              c[fld]=new Date().toISOString().slice(0,10);
-              if(fld==='lastSeen'&&c.lastTalked!==null){
-                const s=new Date(c.lastSeen),sp=new Date(c.lastTalked);
-                if(s>sp) c.lastTalked=c.lastSeen;
+          ['pointerup','pointerleave','pointercancel'].forEach(evt=>
+            btn.addEventListener(evt,()=>{
+              clearTimeout(timer);
+              if (Date.now() - downTime < 700){
+                c[fld] = new Date().toISOString().slice(0,10);
+                if (fld==='lastSeen' && c.lastTalked!==null){
+                  const s=new Date(c.lastSeen), sp=new Date(c.lastTalked);
+                  if (s>sp) c.lastTalked = c.lastSeen;
+                }
+                save(); render();
               }
-              save();render();
-            }
-          }));
+            })
+          );
           row.appendChild(btn);
         });
 
@@ -303,66 +280,74 @@
       });
     }
 
-    plusBtn.addEventListener('click', ()=>{
+    // Add-contact modal
+    plusBtn.addEventListener('click',()=>{
       modalOv.style.display='flex';
-      modalIn.value='';modalIn.focus();plusBtn.style.display='none';
+      modalIn.value=''; modalIn.focus();
+      plusBtn.style.display='none';
     });
-    modalAdd.addEventListener('click', ()=>{
-      const v=modalIn.value.trim();if(!v){alert('Enter name');return;}
-      contacts.push({name:v,lastTalked:null,lastSeen:null});save();render();
-      modalOv.style.display='none';plusBtn.style.display='block';
+    modalAdd.addEventListener('click',()=>{
+      const v=modalIn.value.trim();
+      if(!v){ alert('Enter name'); return; }
+      contacts.push({name:v,lastTalked:null,lastSeen:null});
+      save(); render();
+      modalOv.style.display='none';
+      plusBtn.style.display='block';
     });
     modalOv.addEventListener('click', e=>{
       if(e.target===modalOv){
-        modalOv.style.display='none';plusBtn.style.display='block';
+        modalOv.style.display='none';
+        plusBtn.style.display='block';
       }
     });
 
+    // Calendar
     function openCal(idx,fld){
-      calIdx=idx;calField=fld;
-      calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
-      const d=new Date(calSel);calYear=d.getFullYear();calMonth=d.getMonth();
-      drawCal();calEl.style.display='flex';
+      calIdx=idx; calField=fld;
+      calSel = contacts[idx][fld] || new Date().toISOString().slice(0,10);
+      const d=new Date(calSel);
+      calYear=d.getFullYear(); calMonth=d.getMonth();
+      drawCal(); calEl.style.display='flex';
     }
     function drawCal(){
-      lblCY.textContent=new Date(calYear,calMonth)
+      lblCY.textContent = new Date(calYear,calMonth)
         .toLocaleDateString(undefined,{year:'numeric',month:'long'});
       datesGr.innerHTML='';
       const first=new Date(calYear,calMonth,1), last=new Date(calYear,calMonth+1,0),
             start=first.getDay(), today=new Date(),
-            minSpoke=(calField==='lastTalked'&&contacts[calIdx].lastSeen)
-                      ?new Date(contacts[calIdx].lastSeen):null;
-      for(let i=0;i<start;i++)datesGr.appendChild(document.createElement('div'));
+            minSp=(calField==='lastTalked'&&contacts[calIdx].lastSeen)
+                    ? new Date(contacts[calIdx].lastSeen):null;
+      for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
       for(let d=1;d<=last.getDate();d++){
-        const b=document.createElement('button');b.textContent=d;
+        const b=document.createElement('button'); b.textContent=d;
         const dt=new Date(calYear,calMonth,d);
-        if(dt>today||(minSpoke&&dt<minSpoke))b.disabled=true;
+        if(dt>today || (minSp && dt<minSp)) b.disabled=true;
         else b.addEventListener('click',()=>{
-          const mo=String(calMonth+1).padStart(2,'0'),da=String(d).padStart(2,'0');
-          contacts[calIdx][calField]=`${calYear}-${mo}-${da}`;
-          if(calField==='lastSeen'&&contacts[calIdx].lastTalked!==null){
+          const mo=String(calMonth+1).padStart(2,'0'), da=String(d).padStart(2,'0');
+          contacts[calIdx][calField] = `${calYear}-${mo}-${da}`;
+          if(calField==='lastSeen' && contacts[calIdx].lastTalked!==null){
             const s=new Date(contacts[calIdx].lastSeen),
                   sp=new Date(contacts[calIdx].lastTalked);
-            if(s>sp)contacts[calIdx].lastTalked=contacts[calIdx].lastSeen;
+            if(s>sp) contacts[calIdx].lastTalked = contacts[calIdx].lastSeen;
           }
-          save();render();closeCal();
+          save(); render(); closeCal();
         });
         const [y,m,day]=calSel.split('-');
-        if(+y===calYear&&+m-1===calMonth&&+day===d)b.classList.add('selected');
+        if(+y===calYear && +m-1===calMonth && +day===d) b.classList.add('selected');
         datesGr.appendChild(b);
       }
     }
-    document.getElementById('prev-month').onclick=()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}drawCal();};
-    document.getElementById('next-month').onclick=()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}drawCal();};
-    document.getElementById('prev-year').onclick=()=>{calYear--;drawCal();};
-    document.getElementById('next-year').onclick=()=>{calYear++;drawCal();};
+    document.getElementById('prev-month').onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} drawCal(); };
+    document.getElementById('next-month').onclick=()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} drawCal(); };
+    document.getElementById('prev-year').onclick=()=>{ calYear--; drawCal(); };
+    document.getElementById('next-year').onclick=()=>{ calYear++; drawCal(); };
     clearBtn.addEventListener('click',()=>{
-      if(calField==='lastSeen')contacts[calIdx].lastSeen=null;
+      if(calField==='lastSeen') contacts[calIdx].lastSeen=null;
       else contacts[calIdx].lastTalked=null;
-      save();render();closeCal();
+      save(); render(); closeCal();
     });
-    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCal();});
-    function closeCal(){calEl.style.display='none';}
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCal(); });
+    function closeCal(){ calEl.style.display='none'; }
 
     if('serviceWorker' in navigator){
       window.addEventListener('load', ()=>navigator.serviceWorker.register('service-worker.js').catch(console.error));
@@ -370,19 +355,20 @@
 
     render();
 
+    // Firestore sync
     function startCloudSync(uid){
-      const userDoc=doc(db,'users',uid);
-      unsubscribeFromCloud=onSnapshot(userDoc,snap=>{
-        if(snap.exists()){contacts=snap.data().contacts||[];render();}
+      const userDoc = doc(db,'users',uid);
+      unsubscribeFromCloud = onSnapshot(userDoc, snap=>{
+        if(snap.exists()){ contacts = snap.data().contacts || []; render(); }
       });
-      save=()=>{
-        localStorage.setItem(KEY,JSON.stringify(contacts));
-        setDoc(userDoc,{contacts});
+      save = ()=>{
+        localStorage.setItem(KEY, JSON.stringify(contacts));
+        setDoc(userDoc, { contacts });
       };
     }
     function stopCloudSync(){
-      if(unsubscribeFromCloud)unsubscribeFromCloud();
-      save=()=>localStorage.setItem(KEY,JSON.stringify(contacts));
+      if(unsubscribeFromCloud) unsubscribeFromCloud();
+      save = ()=> localStorage.setItem(KEY, JSON.stringify(contacts));
     }
   </script>
 </body>
