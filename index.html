@@ -1,25 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>LastSpoke</title>
 
   <!-- PWA manifest -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#ff4081" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#ff4081"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
 
   <!-- Friendly rounded font -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet"/>
 
   <style>
-    /* … your existing CSS (unchanged) … */
     body {
       font-family: Arial, sans-serif;
       max-width: 600px;
@@ -33,6 +29,22 @@
       text-align: center;
       margin-bottom: 12px;
     }
+    /* Login UI */
+    #login-ui {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    #login-ui input {
+      margin: 0 4px;
+      padding: 4px 8px;
+    }
+    #login-ui button {
+      margin: 0 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+
+    /* Column labels */
     #column-labels {
       display: grid;
       grid-template-columns: 1fr 48px 48px;
@@ -45,6 +57,8 @@
       font-size: 0.8em;
       line-height: 1.2em;
     }
+
+    /* Contacts list */
     #contacts-list { margin-bottom: 100px; }
     .contact-row {
       display: grid;
@@ -65,8 +79,7 @@
       overflow-wrap: break-word;
     }
     .circle-btn {
-      width: 48px;
-      height: 48px;
+      width: 48px; height: 48px;
       border-radius: 50%;
       border: none;
       color: white;
@@ -78,6 +91,8 @@
     .circle-btn:active { filter: brightness(0.8); }
     .talked-btn { background-color: #d27fff; }
     .seen-btn   { background-color: #3CB371; }
+
+    /* Always-visible “+” */
     #add-contact-plus {
       position: fixed;
       bottom: 20px;
@@ -93,6 +108,8 @@
       box-shadow: 0 4px 8px rgba(255,64,129,0.3);
       z-index: 1000;
     }
+
+    /* Modal overlay */
     #modal-overlay {
       display: none;
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -115,6 +132,8 @@
       font-size: 28px; cursor: pointer;
       box-shadow: 0 4px 8px rgba(255,64,129,0.4);
     }
+
+    /* Calendar modal */
     #calendar {
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
@@ -144,6 +163,7 @@
       transition: color 0.2s;
     }
     #clear-date:hover { color: #ff4081; }
+
     #calendar-days,
     #calendar-dates {
       display: grid;
@@ -172,6 +192,16 @@
 <body>
   <h1 class="app-title">LastSpoke</h1>
 
+  <!-- Login / Signup UI -->
+  <div id="login-ui">
+    <input  id="email-input"  type="email"    placeholder="Email"/>
+    <input  id="pass-input"   type="password" placeholder="Password"/>
+    <button id="btn-signup">Sign Up</button>
+    <button id="btn-signin">Sign In</button>
+    <button id="btn-logout" style="display:none;">Sign Out</button>
+  </div>
+
+  <!-- Column labels -->
   <div id="column-labels">
     <div></div>
     <div class="label">Last<br>Spoke</div>
@@ -183,7 +213,7 @@
   <!-- Add-contact Modal -->
   <div id="modal-overlay">
     <div id="modal">
-      <input id="modal-contact-name" placeholder="Enter contact name" maxlength="40" />
+      <input id="modal-contact-name" placeholder="Enter contact name" maxlength="40"/>
       <button id="modal-add-btn">+</button>
     </div>
   </div>
@@ -207,12 +237,15 @@
 
   <!-- Firebase & App Script -->
   <script type="module">
-    // --- Firebase v9 imports ---
+    // --------------- Firebase v9 imports ---------------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
       getAuth,
       onAuthStateChanged,
-      signInAnonymously
+      signInAnonymously,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
     import {
       getFirestore,
@@ -221,7 +254,7 @@
       setDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    // --- Firebase init ---
+    // --------------- Firebase init ---------------
     const firebaseConfig = {
       apiKey: "AIzaSyCVt7xEfSIuevmDg7g_P-euAzru1wKfbgc",
       authDomain: "lastspoke-pwa.firebaseapp.com",
@@ -234,25 +267,68 @@
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // --- Anonymous sign-in ---
-    signInAnonymously(auth).catch(err =>
-      console.error("Anonymous sign-in failed:", err)
-    );
+    // --------------- Auth UI logic ---------------
+    const emailIn   = document.getElementById('email-input');
+    const passIn    = document.getElementById('pass-input');
+    const btnSignup = document.getElementById('btn-signup');
+    const btnSignin = document.getElementById('btn-signin');
+    const btnLogout = document.getElementById('btn-logout');
 
-    // --- Cloud sync setup ---
+    // Anonymous sign-in on load
+    signInAnonymously(auth).catch(console.error);
+
+    // Email signup
+    btnSignup.onclick = () => {
+      createUserWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
+        .catch(e => alert('Sign-up error: ' + e.message));
+    };
+    // Email signin
+    btnSignin.onclick = () => {
+      signInWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
+        .catch(e => alert('Sign-in error: ' + e.message));
+    };
+    // Sign out
+    btnLogout.onclick = () => signOut(auth);
+
+    // React to auth state
     let unsubscribeFromCloud = null;
     onAuthStateChanged(auth, user => {
       if (user) {
+        document.getElementById('login-ui').style.display = 'none';
+        btnLogout.style.display = '';
         startCloudSync(user.uid);
       } else {
+        document.getElementById('login-ui').style.display = '';
+        btnLogout.style.display = 'none';
         stopCloudSync();
       }
     });
 
-    // --- Core app code (render, calendar, etc.) ---
+    // --------------- Core App Logic ---------------
     const KEY = 'contactTrackerData';
     let contacts = JSON.parse(localStorage.getItem(KEY) || '[]');
     let calIdx, calField, calYear, calMonth, calSel;
+
+    // Default save (overridden when signed in)
+    function save(){
+      localStorage.setItem(KEY, JSON.stringify(contacts));
+    }
+
+    function daysSince(d){
+      return d
+        ? Math.floor((Date.now() - new Date(d)) / 86400000)
+        : '—';
+    }
+    function fmtName(n){
+      const w = n.trim().split(' ');
+      if (w.length > 1){
+        let f = w[0], s = w.slice(1).join(' ');
+        if (f.length > 20){ s = f.slice(20)+' '+s; f = f.slice(0,20); }
+        if (s.length > 20) s = s.slice(0,20)+'…';
+        return f + '\n' + s;
+      }
+      return n.length > 20 ? n.slice(0,20)+'…' : n;
+    }
 
     const listEl   = document.getElementById('contacts-list'),
           plusBtn  = document.getElementById('add-contact-plus'),
@@ -267,28 +343,6 @@
           nMo      = document.getElementById('next-month'),
           clearBtn = document.getElementById('clear-date'),
           datesGr  = document.getElementById('calendar-dates');
-
-    // Overrideable save function
-    function save(){
-      localStorage.setItem(KEY, JSON.stringify(contacts));
-      // Firestore write happens in startCloudSync()
-    }
-
-    function daysSince(d){
-      return d
-        ? Math.floor((Date.now() - new Date(d)) / 86400000)
-        : '—';
-    }
-    function fmtName(n){
-      const w = n.trim().split(' ');
-      if (w.length > 1){
-        let f = w[0], s = w.slice(1).join(' ');
-        if (f.length>20){ s=f.slice(20)+' '+s; f=f.slice(0,20) }
-        if (s.length>20) s=s.slice(0,20)+'…';
-        return f + '\n' + s;
-      }
-      return n.length>20 ? n.slice(0,20)+'…' : n;
-    }
 
     function render(){
       listEl.innerHTML = '';
@@ -328,10 +382,8 @@
               clearTimeout(timer);
               if (Date.now() - down < 700){
                 c[fld] = new Date().toISOString().slice(0,10);
-                // bump logic only if lastTalked exists
                 if (fld==='lastSeen' && c.lastTalked!==null){
-                  const seenD=new Date(c.lastSeen),
-                        spokeD=new Date(c.lastTalked);
+                  const seenD=new Date(c.lastSeen), spokeD=new Date(c.lastTalked);
                   if (seenD>spokeD) c.lastTalked = c.lastSeen;
                 }
                 save(); render();
@@ -365,11 +417,11 @@
     modalOv.addEventListener('click', e=>{
       if (e.target===modalOv){
         modalOv.style.display = 'none';
-        plusBtn.style.display = 'block';
+        plusBtn	style.display = 'block';
       }
     });
 
-    // Calendar functions (unchanged from before)
+    // Calendar
     function openCal(idx,fld){
       calIdx=idx; calField=fld;
       calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
@@ -384,24 +436,20 @@
             last =new Date(calYear,calMonth+1,0),
             start=first.getDay(),
             today=new Date(),
-            minSpoke=(calField==='lastTalked'&&contacts[calIdx].lastSeen)
-                      ? new Date(contacts[calIdx].lastSeen)
-                      : null;
+            minSpoke=(calField==='lastTalked'&&contacts[calIdx].lastSeen)?new Date(contacts[calIdx].lastSeen):null;
       for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
       for(let d=1; d<=last.getDate(); d++){
         const b=document.createElement('button'); b.textContent=d;
         const dt=new Date(calYear,calMonth,d);
-        if(dt>today || (minSpoke&&dt<minSpoke)){
+        if (dt>today||(minSpoke&&dt<minSpoke)){
           b.disabled=true;
         } else {
           b.addEventListener('click', ()=>{
-            const mo=String(calMonth+1).padStart(2,'0'),
-                  da=String(d).padStart(2,'0');
+            const mo=String(calMonth+1).padStart(2,'0'), da=String(d).padStart(2,'0');
             contacts[calIdx][calField]=`${calYear}-${mo}-${da}`;
-            if(calField==='lastSeen' && contacts[calIdx].lastTalked!==null){
-              const seenD=new Date(contacts[calIdx].lastSeen),
-                    spokeD=new Date(contacts[calIdx].lastTalked);
-              if(seenD>spokeD) contacts[calIdx].lastTalked = contacts[calIdx].lastSeen;
+            if(calField==='lastSeen'&&contacts[calIdx].lastTalked!==null){
+              const seenD=new Date(contacts[calIdx].lastSeen), spokeD=new Date(contacts[calIdx].lastTalked);
+              if(seenD>spokeD) contacts[calIdx].lastTalked=contacts[calIdx].lastSeen;
             }
             save(); render(); closeCal();
           });
@@ -416,8 +464,8 @@
     pYr.onclick=()=>{calYear--;drawCal();};
     nYr.onclick=()=>{calYear++;drawCal();};
     clearBtn.addEventListener('click', ()=>{
-      if(calField==='lastSeen'){ contacts[calIdx].lastSeen=null; }
-      else                    { contacts[calIdx].lastTalked=null; }
+      if(calField==='lastSeen') contacts[calIdx].lastSeen=null;
+      else contacts[calIdx].lastTalked=null;
       save(); render(); closeCal();
     });
     document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCal(); });
@@ -431,10 +479,10 @@
       });
     }
 
-    // Initial render
+    // Init render
     render();
 
-    // --- Firestore sync functions ---
+    // --------------- Firestore sync ---------------
     function startCloudSync(uid) {
       const userDoc = doc(db, "users", uid);
       unsubscribeFromCloud = onSnapshot(userDoc, snap => {
