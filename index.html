@@ -78,7 +78,7 @@
       font-size:28px;cursor:pointer;box-shadow:0 4px 8px rgba(255,64,129,.4);
     }
     #calendar {
-      display:none!important; /* ensure it's always hidden until openCal() */
+      display:none!important; /* hidden until invoked */
       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
       background:white;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);
       padding:16px;z-index:6000;display:flex;flex-direction:column;align-items:center;
@@ -110,7 +110,6 @@
 </head>
 
 <body>
-
   <!-- Auth Overlay -->
   <div id="auth-overlay">
     <h2>Welcome to LastSpoke</h2>
@@ -158,7 +157,7 @@
   </div>
 
   <script type="module">
-    // --- Firebase imports ---
+    // Firebase imports
     import { initializeApp }         from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
       getAuth, onAuthStateChanged, signInAnonymously,
@@ -169,7 +168,7 @@
       getFirestore, doc, onSnapshot, setDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    // --- Firebase init ---
+    // Initialize Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyCVt7xEfSIuevmDg7g_P-euAzru1wKfbgc",
       authDomain: "lastspoke-pwa.firebaseapp.com",
@@ -182,7 +181,7 @@
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // --- Auth UI refs ---
+    // Auth UI elements
     const authOv   = document.getElementById('auth-overlay');
     const emailIn  = document.getElementById('email-input');
     const passIn   = document.getElementById('pass-input');
@@ -192,253 +191,33 @@
     const appCont  = document.getElementById('app-container');
     const loginSt  = document.getElementById('login-status');
 
-    // --- Auth handlers ---
+    // Sign-up (with verification)
     btnSU.onclick = () => {
       createUserWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
-        .then(cred =>
-          sendEmailVerification(cred.user)
-            .then(() => alert("Verification email sent!"))
-        )
+        .then(cred => sendEmailVerification(cred.user).then(() => alert("Verification email sent!")))
         .catch(e => alert("Sign-up error: " + e.message));
     };
+    // Sign-in
     btnSI.onclick = () => {
       signInWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
         .catch(e => alert("Sign-in error: " + e.message));
     };
-    btnG.onclick = () => {
-      signInAnonymously(auth).catch(e => console.error("Guest sign-in failed", e));
-    };
+    // Guest
+    btnG.onclick = () => signInAnonymously(auth).catch(console.error);
 
-    // --- Show/hide app after auth ---
+    // After auth state changes
     let unsubscribeFromCloud = null;
     onAuthStateChanged(auth, user => {
       if (user && (user.isAnonymous || user.emailVerified)) {
-        // hide overlay, show app
+        // Show app
         authOv.style.display  = 'none';
         appCont.style.display = 'block';
-
-        // show status + buttons
+        // Show status + buttons
         loginSt.innerHTML = user.isAnonymous
-          ? `Signed in as Guest`
+          ? 'Signed in as Guest'
           : `Signed in as ${user.email}`;
-        // always show Sign Out
-        loginSt.insertAdjacentHTML('beforeend',
-          `<button id="btn-signout-app">Sign Out</button>`
-        );
-        // if guest, also show a Sign In button
-        if (user.isAnonymous) {
-          loginSt.insertAdjacentHTML('beforeend',
-            `<button id="btn-upgrade">Sign In</button>`
-          );
-          document.getElementById('btn-upgrade')
-            .onclick = () => authOv.style.display='flex';
-        }
+        loginSt.insertAdjacentHTML('beforeend', '<button id="btn-signout-app">Sign Out</button>');
         document.getElementById('btn-signout-app')
           .onclick = () => signOut(auth);
-
-        startCloudSync(user.uid);
-      } else {
-        // back to overlay
-        authOv.style.display  = 'flex';
-        appCont.style.display = 'none';
-        loginSt.textContent   = '';
-        stopCloudSync();
-      }
-    });
-
-    // --- Core App Code (unchanged) ---
-    const KEY='contactTrackerData';
-    let contacts = JSON.parse(localStorage.getItem(KEY)||'[]');
-    let calIdx,calField,calYear,calMonth,calSel;
-
-    const listEl    = document.getElementById('contacts-list'),
-          plusBtn   = document.getElementById('add-contact-plus'),
-          modalOv   = document.getElementById('modal-overlay'),
-          modalIn   = document.getElementById('modal-contact-name'),
-          modalAdd  = document.getElementById('modal-add-btn'),
-          calEl     = document.getElementById('calendar'),
-          lblCY     = document.getElementById('calendar-month-year'),
-          pYr       = document.getElementById('prev-year'),
-          nYr       = document.getElementById('next-year'),
-          pMo       = document.getElementById('prev-month'),
-          nMo       = document.getElementById('next-month'),
-          clearBtn  = document.getElementById('clear-date'),
-          datesGr   = document.getElementById('calendar-dates');
-
-    function save(){
-      localStorage.setItem(KEY, JSON.stringify(contacts));
-      // Firestore writes happen in startCloudSync()
-    }
-    function daysSince(d){
-      return d
-        ? Math.floor((Date.now() - new Date(d)) / 86400000)
-        : '—';
-    }
-    function fmtName(n){
-      const w=n.trim().split(' ');
-      if(w.length>1){
-        let f=w[0],s=w.slice(1).join(' ');
-        if(f.length>20){s=f.slice(20)+' '+s;f=f.slice(0,20);}
-        if(s.length>20) s=s.slice(0,20)+'…';
-        return f+'\n'+s;
-      }
-      return n.length>20?n.slice(0,20)+'…':n;
-    }
-
-    function render(){
-      listEl.innerHTML = '';
-      contacts.forEach((c,i)=>{
-        const row = document.createElement('div');
-        row.className = 'contact-row';
-
-        // Name w/ long-press delete
-        const nm = document.createElement('div');
-        nm.className = 'contact-name';
-        nm.textContent = fmtName(c.name);
-        let delTm;
-        nm.addEventListener('pointerdown', ()=>{
-          delTm = setTimeout(()=>{
-            if(confirm(`Delete "${c.name}"?`)){
-              contacts.splice(i,1);
-              save(); render();
-            }
-          },700);
-        });
-        ['pointerup','pointerleave','pointercancel'].forEach(evt=>
-          nm.addEventListener(evt, ()=>clearTimeout(delTm))
-        );
-        row.appendChild(nm);
-
-        // Counters
-        ['lastTalked','lastSeen'].forEach(fld=>{
-          const btn = document.createElement('button');
-          btn.className = 'circle-btn ' + (fld==='lastTalked'?'talked-btn':'seen-btn');
-          btn.textContent = daysSince(c[fld]);
-
-          let down, tm;
-          btn.addEventListener('pointerdown', ()=>{
-            down = Date.now();
-            tm = setTimeout(()=> openCal(i,fld),700);
-          });
-          ['pointerup','pointerleave','pointercancel'].forEach(evt=>
-            btn.addEventListener(evt, ()=>{
-              clearTimeout(tm);
-              if(Date.now()-down < 700){
-                c[fld] = new Date().toISOString().slice(0,10);
-                // bump logic
-                if(fld==='lastSeen' && c.lastTalked!==null){
-                  const s=new Date(c.lastSeen), sp=new Date(c.lastTalked);
-                  if(s>sp) c.lastTalked = c.lastSeen;
-                }
-                save(); render();
-              }
-            })
-          );
-          row.appendChild(btn);
-        });
-
-        listEl.appendChild(row);
-      });
-    }
-
-    // “+” add-contact
-    plusBtn.addEventListener('click', ()=>{
-      modalOv.style.display='flex';
-      modalIn.value='';
-      modalIn.focus();
-      plusBtn.style.display='none';
-    });
-    modalAdd.addEventListener('click', ()=>{
-      const v = modalIn.value.trim();
-      if(!v){ alert('Enter name'); return; }
-      contacts.push({ name:v, lastTalked:null, lastSeen:null });
-      save(); render();
-      modalOv.style.display='none';
-      plusBtn.style.display='block';
-    });
-    modalOv.addEventListener('click', e=>{
-      if(e.target===modalOv){
-        modalOv.style.display='none';
-        plusBtn.style.display='block';
-      }
-    });
-
-    // Calendar
-    function openCal(idx,fld){
-      calIdx=idx; calField=fld;
-      calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
-      const d=new Date(calSel);
-      calYear=d.getFullYear(); calMonth=d.getMonth();
-      drawCal(); calEl.style.display='flex';
-    }
-    function drawCal(){
-      lblCY.textContent = new Date(calYear,calMonth)
-        .toLocaleDateString(undefined,{year:'numeric',month:'long'});
-      datesGr.innerHTML = '';
-      const first=new Date(calYear,calMonth,1),
-            last =new Date(calYear,calMonth+1,0),
-            start=first.getDay(), today=new Date(),
-            minSpoke=(calField==='lastTalked'&&contacts[calIdx].lastSeen)
-                      ? new Date(contacts[calIdx].lastSeen) : null;
-      for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
-      for(let d=1; d<= last.getDate(); d++){
-        const b=document.createElement('button'); b.textContent=d;
-        const dt=new Date(calYear,calMonth,d);
-        if(dt>today || (minSpoke && dt<minSpoke)) b.disabled=true;
-        else b.addEventListener('click', ()=>{
-          const mo=String(calMonth+1).padStart(2,'0'),
-                da=String(d).padStart(2,'0');
-          contacts[calIdx][calField]=`${calYear}-${mo}-${da}`;
-          if(calField==='lastSeen' && contacts[calIdx].lastTalked!==null){
-            const s=new Date(contacts[calIdx].lastSeen),
-                  sp=new Date(contacts[calIdx].lastTalked);
-            if(s>sp) contacts[calIdx].lastTalked = contacts[calIdx].lastSeen;
-          }
-          save(); render(); closeCal();
-        });
-        const [y,m,day] = calSel.split('-');
-        if(+y===calYear && +m-1===calMonth && +day===d) b.classList.add('selected');
-        datesGr.appendChild(b);
-      }
-    }
-    pMo.onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} drawCal(); };
-    nMo.onclick=()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} drawCal(); };
-    pYr.onclick=()=>{ calYear--; drawCal(); };
-    nYr.onclick=()=>{ calYear++; drawCal(); };
-    clearBtn.addEventListener('click', ()=>{
-      if(calField==='lastSeen') contacts[calIdx].lastSeen=null;
-      else contacts[calIdx].lastTalked=null;
-      save(); render(); closeCal();
-    });
-    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCal(); });
-    function closeCal(){ calEl.style.display='none'; }
-
-    // Service worker
-    if('serviceWorker' in navigator){
-      window.addEventListener('load', ()=>{
-        navigator.serviceWorker.register('service-worker.js')
-          .catch(console.error);
-      });
-    }
-
-    // Initial render
-    render();
-
-    // Firestore sync
-    function startCloudSync(uid){
-      const userDoc = doc(db,'users',uid);
-      unsubscribeFromCloud = onSnapshot(userDoc, snap=>{
-        if(snap.exists()){ contacts = snap.data().contacts || []; render(); }
-      });
-      save = ()=>{
-        localStorage.setItem(KEY,JSON.stringify(contacts));
-        setDoc(userDoc,{ contacts });
-      };
-    }
-    function stopCloudSync(){
-      if(unsubscribeFromCloud) unsubscribeFromCloud();
-      save = ()=> localStorage.setItem(KEY,JSON.stringify(contacts));
-    }
-  </script>
-</body>
-</html>
+        if (user.isAnonymous) {
+          loginSt.insertAdj
