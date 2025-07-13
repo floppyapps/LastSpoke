@@ -16,8 +16,7 @@
     #auth-overlay { position:fixed; top:0; left:0; right:0; bottom:0;
       background:white; display:flex; flex-direction:column;
       align-items:center; justify-content:center; font-family:Arial,sans-serif; z-index:10000; }
-    #auth-overlay input, #auth-overlay button {
-      margin:6px; padding:8px; width:220px; font-size:1em; }
+    #auth-overlay input, #auth-overlay button { margin:6px; padding:8px; width:220px; font-size:1em; }
     /* App hidden until auth */
     #app-container { display:none; }
     body { font-family:Arial,sans-serif; max-width:600px; margin:0 auto; padding:15px; user-select:none; }
@@ -56,7 +55,8 @@
     #modal button { width:48px; height:48px; border-radius:50%;
       background:#ff4081; color:#fff; border:none;
       font-size:28px; cursor:pointer; box-shadow:0 4px 8px rgba(255,64,129,.4); }
-    #calendar { display:none!important; position:fixed; top:50%;left:50%;
+    /* Calendar (always hidden until openCal) */
+    #calendar { display:none!important; position:fixed; top:50%; left:50%;
       transform:translate(-50%,-50%); background:#fff; border-radius:12px;
       box-shadow:0 6px 20px rgba(0,0,0,.3); padding:16px; z-index:6000;
       display:flex; flex-direction:column; align-items:center; }
@@ -64,22 +64,18 @@
     #calendar-header button { background:transparent; border:none;
       font-size:18px; cursor:pointer; color:#555; transition:color .2s; }
     #calendar-header button:hover { color:#ff4081; }
-    #calendar-month-year { flex:1; text-align:center;
-      font-size:1.1em; font-weight:bold; }
-    #clear-date { font-size:24px; color:#555; border:none;
-      background:transparent; cursor:pointer; padding:4px 8px;
-      transition:color .2s; }
+    #calendar-month-year { flex:1; text-align:center; font-size:1.1em; font-weight:bold; }
+    #clear-date { font-size:24px; color:#555; border:none; background:transparent;
+      cursor:pointer; padding:4px 8px; transition:color .2s; }
     #clear-date:hover { color:#ff4081; }
     #calendar-days,#calendar-dates { display:grid;
-      grid-template-columns:repeat(7,1fr); gap:4px; width:100%;
-      text-align:center; }
+      grid-template-columns:repeat(7,1fr); gap:4px; width:100%; text-align:center; }
     #calendar-days div { font-weight:bold; color:#777; }
     #calendar-dates button { background:transparent; border:none;
       padding:6px 0; border-radius:6px; cursor:pointer;
       transition:background .3s,color .3s; color:#444; }
     #calendar-dates button:hover { background:#ffccdc; color:#ff4081; }
-    #calendar-dates button.selected { background:#ff4081;
-      color:#fff; font-weight:bold; }
+    #calendar-dates button.selected { background:#ff4081; color:#fff; font-weight:bold; }
     #calendar-dates button:disabled { color:#ccc; cursor:default; }
   </style>
 </head>
@@ -130,7 +126,6 @@
   </div>
 
   <script type="module">
-    // Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
       getAuth, onAuthStateChanged, signInAnonymously,
@@ -141,6 +136,7 @@
       getFirestore, doc, onSnapshot, setDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
+    // Initialize Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyCVt7xEfSIuevmDg7g_P-euAzru1wKfbgc",
       authDomain: "lastspoke-pwa.firebaseapp.com",
@@ -165,39 +161,39 @@
 
     btnSU.onclick = () => {
       createUserWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
-        .then(cred => sendEmailVerification(cred.user).then(()=>alert("Verification email sent!")))
-        .catch(e=>alert(e.message));
+        .then(cred => sendEmailVerification(cred.user).then(() => alert("Verification email sent!")))
+        .catch(e => alert(e.message));
     };
     btnSI.onclick = () => {
       signInWithEmailAndPassword(auth, emailIn.value.trim(), passIn.value)
-        .catch(e=>alert(e.message));
+        .catch(e => alert(e.message));
     };
     btnG.onclick = () => signInAnonymously(auth).catch(console.error);
 
-    let unsubscribeCloud=null;
-    onAuthStateChanged(auth, user=>{
-      if (user && (user.isAnonymous||user.emailVerified)){
-        authOv.style.display='none';
-        appCt.style.display='block';
+    let unsubscribeCloud = null;
+    onAuthStateChanged(auth, user => {
+      if (user && (user.isAnonymous || user.emailVerified)) {
+        authOv.style.display = 'none';
+        appCt.style.display  = 'block';
         loginSt.innerHTML = user.isAnonymous
           ? 'Signed in as Guest'
           : `Signed in as ${user.email}`;
         loginSt.insertAdjacentHTML('beforeend','<button id="btn-out">Sign Out</button>');
-        document.getElementById('btn-out').onclick = ()=>signOut(auth);
-        if (user.isAnonymous){
+        document.getElementById('btn-out').onclick = () => signOut(auth);
+        if (user.isAnonymous) {
           loginSt.insertAdjacentHTML('beforeend','<button id="btn-up">Sign In</button>');
-          document.getElementById('btn-up').onclick = ()=>authOv.style.display='flex';
+          document.getElementById('btn-up').onclick = () => authOv.style.display='flex';
         }
         startCloudSync(user.uid);
       } else {
-        authOv.style.display='flex';
-        appCt.style.display='none';
-        loginSt.textContent='';
+        authOv.style.display = 'flex';
+        appCt.style.display  = 'none';
+        loginSt.textContent  = '';
         stopCloudSync();
       }
     });
 
-    // Core
+    // Core logic
     const KEY='contactTrackerData';
     let contacts = JSON.parse(localStorage.getItem(KEY)||'[]');
     let calIdx,calField,calYear,calMonth,calSel;
@@ -216,68 +212,77 @@
           clrBtn  = document.getElementById('clear-date'),
           datesGr = document.getElementById('calendar-dates');
 
-    function save(){
+    function save() {
       localStorage.setItem(KEY, JSON.stringify(contacts));
     }
-    function daysSince(d){
-      return d?Math.floor((Date.now()-new Date(d))/86400000):'—';
+    function daysSince(d) {
+      return d ? Math.floor((Date.now() - new Date(d)) / 86400000) : '—';
     }
-    function fmtName(n){
-      const w=n.trim().split(' ');
-      if(w.length>1){
-        let f=w[0],s=w.slice(1).join(' ');
-        if(f.length>20){s=f.slice(20)+' '+s;f=f.slice(0,20);}
-        if(s.length>20)s=s.slice(0,20)+'…';
+    function fmtName(n) {
+      const w = n.trim().split(' ');
+      if (w.length > 1) {
+        let f = w[0], s = w.slice(1).join(' ');
+        if (f.length>20) { s=f.slice(20)+' '+s; f=f.slice(0,20); }
+        if (s.length>20) s = s.slice(0,20)+'…';
         return f+'\n'+s;
       }
       return n.length>20?n.slice(0,20)+'…':n;
     }
 
-    function render(){
-      listEl.innerHTML='';
-      contacts.forEach((c,i)=>{
-        const row=document.createElement('div');
-        row.className='contact-row';
+    function render() {
+      listEl.innerHTML = '';
+      contacts.forEach((c,i) => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
 
-        // name & delete
-        const nm=document.createElement('div');
-        nm.className='contact-name';
-        nm.textContent=fmtName(c.name);
-        let dtmr;
-        nm.addEventListener('pointerdown',()=>{
-          dtmr=setTimeout(()=>{
-            if(confirm(`Delete "${c.name}"?`)){
+        // name + delete long-press
+        const nm = document.createElement('div');
+        nm.className = 'contact-name';
+        nm.textContent = fmtName(c.name);
+        let delTimer;
+        nm.addEventListener('pointerdown', () => {
+          delTimer = setTimeout(() => {
+            if (confirm(`Delete "${c.name}"?`)) {
               contacts.splice(i,1); save(); render();
             }
-          },700);
+          }, 700);
         });
-        ['pointerup','pointerleave','pointercancel']
-          .forEach(e=>nm.addEventListener(e,()=>clearTimeout(dtmr)));
+        ['pointerup','pointerleave','pointercancel'].forEach(e =>
+          nm.addEventListener(e, () => clearTimeout(delTimer))
+        );
         row.appendChild(nm);
 
-        // counters
-        ['lastTalked','lastSeen'].forEach(fld=>{
-          const btn=document.createElement('button');
-          btn.className='circle-btn '+(fld==='lastTalked'?'talked-btn':'seen-btn');
-          btn.textContent=daysSince(c[fld]);
-          let down, tmr;
-          btn.addEventListener('pointerdown',()=>{
-            down=Date.now();
-            tmr=setTimeout(()=>openCal(i,fld),700);
-          });
-          ['pointerup','pointerleave','pointercancel']
-            .forEach(e=>btn.addEventListener(e,()=>{
-              clearTimeout(tmr);
-              if(Date.now()-down<700){
-                c[fld]=new Date().toISOString().slice(0,10);
-                if(fld==='lastSeen'&&c.lastTalked!==null){
-                  const s=new Date(c.lastSeen),
-                        sp=new Date(c.lastTalked);
-                  if(s>sp)c.lastTalked=c.lastSeen;
-                }
-                save(); render();
+        // counters with long-press calendar
+        ['lastTalked','lastSeen'].forEach(fld => {
+          const btn = document.createElement('button');
+          btn.className = 'circle-btn ' + (fld==='lastTalked'?'talked-btn':'seen-btn');
+          btn.textContent = daysSince(c[fld]);
+          let downTime, holdTimer;
+          function startHold() {
+            downTime = Date.now();
+            holdTimer = setTimeout(() => openCal(i,fld), 700);
+          }
+          function endHold() {
+            clearTimeout(holdTimer);
+            if (Date.now() - downTime < 700) {
+              c[fld] = new Date().toISOString().slice(0,10);
+              if (fld==='lastSeen' && c.lastTalked!==null) {
+                const s=new Date(c.lastSeen), sp=new Date(c.lastTalked);
+                if (s>sp) c.lastTalked = c.lastSeen;
               }
-            }));
+              save(); render();
+            }
+          }
+          // pointer events
+          btn.addEventListener('pointerdown', startHold);
+          btn.addEventListener('pointerup',   endHold);
+          btn.addEventListener('pointerleave', endHold);
+          btn.addEventListener('pointercancel',endHold);
+          // touch events for compatibility
+          btn.addEventListener('touchstart', startHold);
+          btn.addEventListener('touchend',   endHold);
+          btn.addEventListener('touchcancel',endHold);
+
           row.appendChild(btn);
         });
 
@@ -285,63 +290,58 @@
       });
     }
 
-    // add contact
-    plusBtn.addEventListener('click',()=>{
-      mdlOv.style.display='flex';
-      mdlIn.value=''; mdlIn.focus();
-      plusBtn.style.display='none';
+    // add-contact modal
+    plusBtn.addEventListener('click', () => {
+      mdlOv.style.display='flex'; mdlIn.value=''; mdlIn.focus(); plusBtn.style.display='none';
     });
-    mdlAdd.addEventListener('click',()=>{
+    mdlAdd.addEventListener('click', () => {
       const v=mdlIn.value.trim();
-      if(!v){alert('Enter name');return;}
+      if(!v){ alert('Enter name'); return; }
       contacts.push({name:v,lastTalked:null,lastSeen:null});
       save(); render();
-      mdlOv.style.display='none';
-      plusBtn.style.display='block';
+      mdlOv.style.display='none'; plusBtn.style.display='block';
     });
-    mdlOv.addEventListener('click',e=>{
+    mdlOv.addEventListener('click', e => {
       if(e.target===mdlOv){
-        mdlOv.style.display='none';
-        plusBtn.style.display='block';
+        mdlOv.style.display='none'; plusBtn.style.display='block';
       }
     });
 
     // calendar
-    function openCal(idx,fld){
+    function openCal(idx,fld) {
       calIdx=idx; calField=fld;
-      calSel=contacts[idx][fld]||new Date().toISOString().slice(0,10);
+      calSel = contacts[idx][fld] || new Date().toISOString().slice(0,10);
       const d=new Date(calSel);
       calYear=d.getFullYear(); calMonth=d.getMonth();
       drawCal(); calEl.style.display='flex';
     }
-    function drawCal(){
-      lblCY.textContent=new Date(calYear,calMonth)
+    function drawCal() {
+      lblCY.textContent = new Date(calYear,calMonth)
         .toLocaleDateString(undefined,{year:'numeric',month:'long'});
       datesGr.innerHTML='';
       const first=new Date(calYear,calMonth,1),
             last=new Date(calYear,calMonth+1,0),
             start=first.getDay(), today=new Date(),
-            minSp=(calField==='lastTalked'&&contacts[calIdx].lastSeen)
-                  ?new Date(contacts[calIdx].lastSeen):null;
-      for(let i=0;i<start;i++)datesGr.appendChild(document.createElement('div'));
-      for(let d=1;d<=last.getDate();d++){
-        const b=document.createElement('button');
-        b.textContent=d;
+            minSp = (calField==='lastTalked' && contacts[calIdx].lastSeen)
+                      ? new Date(contacts[calIdx].lastSeen) : null;
+      for(let i=0;i<start;i++) datesGr.appendChild(document.createElement('div'));
+      for(let d=1; d<=last.getDate(); d++){
+        const b=document.createElement('button'); b.textContent=d;
         const dt=new Date(calYear,calMonth,d);
-        if(dt>today||(minSp&&dt<minSp))b.disabled=true;
-        else b.addEventListener('click',()=>{
+        if(dt>today||(minSp&&dt<minSp)) b.disabled=true;
+        else b.addEventListener('click', ()=>{
           const mo=String(calMonth+1).padStart(2,'0'),
                 da=String(d).padStart(2,'0');
-          contacts[calIdx][calField]=`${calYear}-${mo}-${da}`;
+          contacts[calIdx][calField] = `${calYear}-${mo}-${da}`;
           if(calField==='lastSeen'&&contacts[calIdx].lastTalked!==null){
             const s=new Date(contacts[calIdx].lastSeen),
                   sp=new Date(contacts[calIdx].lastTalked);
-            if(s>sp)contacts[calIdx].lastTalked=contacts[calIdx].lastSeen;
+            if(s>sp) contacts[calIdx].lastTalked = contacts[calIdx].lastSeen;
           }
           save(); render(); closeCal();
         });
         const [y,m,day]=calSel.split('-');
-        if(+y===calYear&&+m-1===calMonth&&+day===d) b.classList.add('selected');
+        if(+y===calYear && +m-1===calMonth && +day===d) b.classList.add('selected');
         datesGr.appendChild(b);
       }
     }
@@ -349,34 +349,35 @@
     nMo.onclick=()=>{ if(++calMonth>11){calMonth=0;calYear++;} drawCal(); };
     pYr.onclick=()=>{ calYear--; drawCal(); };
     nYr.onclick=()=>{ calYear++; drawCal(); };
-    clrBtn.addEventListener('click',()=>{
-      if(calField==='lastSeen')contacts[calIdx].lastSeen=null;
+    clrBtn.addEventListener('click', ()=>{
+      if(calField==='lastSeen') contacts[calIdx].lastSeen=null;
       else contacts[calIdx].lastTalked=null;
       save(); render(); closeCal();
     });
-    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCal(); });
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCal(); });
     function closeCal(){ calEl.style.display='none'; }
 
+    // service worker
     if('serviceWorker' in navigator){
-      window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js').catch(console.error));
+      window.addEventListener('load', ()=>navigator.serviceWorker.register('service-worker.js').catch(console.error));
     }
 
     render();
 
     // Firestore sync
-    function startCloudSync(uid){
-      const userDoc=doc(db,'users',uid);
-      unsubscribeCloud=onSnapshot(userDoc,snap=>{
-        if(snap.exists()){contacts=snap.data().contacts||[];render();}
+    function startCloudSync(uid) {
+      const userDoc = doc(db,'users',uid);
+      unsubscribeCloud = onSnapshot(userDoc, snap=>{
+        if(snap.exists()){ contacts = snap.data().contacts || []; render(); }
       });
-      save=()=>{
-        localStorage.setItem(KEY,JSON.stringify(contacts));
-        setDoc(userDoc,{contacts});
+      save = ()=>{
+        localStorage.setItem(KEY, JSON.stringify(contacts));
+        setDoc(userDoc, { contacts });
       };
     }
     function stopCloudSync(){
-      if(unsubscribeCloud)unsubscribeCloud();
-      save=()=>localStorage.setItem(KEY,JSON.stringify(contacts));
+      if(unsubscribeCloud) unsubscribeCloud();
+      save = ()=> localStorage.setItem(KEY, JSON.stringify(contacts));
     }
   </script>
 </body>
